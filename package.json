@@ -1,0 +1,12 @@
+{
+  "name": "csv-tidy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Normalizes messy CSV input (mixed line endings, stray whitespace, inconsistent quoting) into clean CSV.",
+  "main": "src/normalize.ts",
+  "scripts": {
+    "test": "node --experimental-strip-types --test src/*.test.ts"
+  },
+  "license": "MIT"
+}
