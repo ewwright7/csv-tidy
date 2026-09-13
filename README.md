@@ -33,6 +33,19 @@ console.log(normalizeCsv(messy));
 `parseCsv` and `formatCsv` are also exported separately if you want the
 in-memory rows (`string[][]`) rather than a re-serialized string.
 
+## CLI
+
+`src/cli.ts` normalizes one or more files in place:
+
+```
+node --experimental-strip-types src/cli.ts messy.csv other.csv
+```
+
+Files that are already in canonical form are left untouched (no write, no
+mtime change). A file that fails to read is reported on stderr and the
+process exits nonzero, but the remaining files in the argument list are
+still processed.
+
 ## Running the tests
 
 The test suite uses Node's built-in test runner and TypeScript's type
