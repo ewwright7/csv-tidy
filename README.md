@@ -33,12 +33,30 @@ console.log(normalizeCsv(messy));
 `parseCsv` and `formatCsv` are also exported separately if you want the
 in-memory rows (`string[][]`) rather than a re-serialized string.
 
+The delimiter defaults to a comma but can be overridden for semicolon- or
+tab-separated files:
+
+```ts
+normalizeCsv("a;b;c\n", { delimiter: ";" });
+normalizeCsv("a\tb\tc\n", { delimiter: "\t" });
+```
+
+The delimiter must be a single character and cannot be a quote or a line
+ending; passing anything else throws.
+
 ## CLI
 
 `src/cli.ts` normalizes one or more files in place:
 
 ```
 node --experimental-strip-types src/cli.ts messy.csv other.csv
+```
+
+Pass `--delimiter` (or `-d`) to normalize a file that uses a different field
+separator:
+
+```
+node --experimental-strip-types src/cli.ts --delimiter ";" messy.csv
 ```
 
 Files that are already in canonical form are left untouched (no write, no

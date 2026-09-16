@@ -53,3 +53,37 @@ test("cli exits nonzero and prints usage when given no files", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /usage:/);
 });
+
+test("cli normalizes with a custom delimiter", () => {
+  const dir = mkdtempSync(join(tmpdir(), "csv-tidy-"));
+  const file = join(dir, "messy.csv");
+  writeFileSync(file, " a ; b \r\nc;d", "utf8");
+
+  try {
+    const result = runCli(["--delimiter", ";", file]);
+    assert.equal(result.status, 0);
+    assert.equal(readFileSync(file, "utf8"), "a;b\nc;d\n");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli reports an error for an invalid delimiter", () => {
+  const dir = mkdtempSync(join(tmpdir(), "csv-tidy-"));
+  const file = join(dir, "messy.csv");
+  writeFileSync(file, "a,b\n", "utf8");
+
+  try {
+    const result = runCli(["--delimiter", ",,", file]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /csv-tidy:/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli reports an error when --delimiter is missing its value", () => {
+  const result = runCli(["--delimiter"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--delimiter requires a value/);
+});

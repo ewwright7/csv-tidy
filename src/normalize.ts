@@ -3,12 +3,33 @@
  * that came out of some other tool (a spreadsheet export, a legacy system,
  * whatever) with inconsistent line endings, stray whitespace, or a BOM.
  *
- * This is deliberately not a full RFC 4180 implementation with configurable
- * delimiters. It assumes commas and handles the handful of real-world quirks
- * that actually show up in the wild.
+ * The delimiter defaults to a comma but can be overridden (semicolon, tab,
+ * whatever the source system used). It handles the handful of real-world
+ * quirks that actually show up in the wild rather than aiming for a full
+ * RFC 4180 implementation.
  */
 
-export function parseCsv(input: string): string[][] {
+export interface CsvOptions {
+  /** Single-character field separator. Defaults to "," (comma). */
+  delimiter?: string;
+}
+
+const DEFAULT_DELIMITER = ",";
+
+function resolveDelimiter(options: CsvOptions): string {
+  const delimiter = options.delimiter ?? DEFAULT_DELIMITER;
+  if (delimiter.length !== 1) {
+    throw new Error(`csv delimiter must be a single character, got ${JSON.stringify(delimiter)}`);
+  }
+  if (delimiter === '"' || delimiter === "\n" || delimiter === "\r") {
+    throw new Error(`csv delimiter cannot be a quote or line-ending character`);
+  }
+  return delimiter;
+}
+
+export function parseCsv(input: string, options: CsvOptions = {}): string[][] {
+  const delimiter = resolveDelimiter(options);
+
   // Excel and friends like to prefix UTF-8 exports with a BOM.
   if (input.charCodeAt(0) === 0xfeff) {
     input = input.slice(1);
@@ -63,7 +84,7 @@ export function parseCsv(input: string): string[][] {
       continue;
     }
 
-    if (ch === ",") {
+    if (ch === delimiter) {
       pushField();
       i += 1;
       continue;
@@ -93,8 +114,8 @@ export function parseCsv(input: string): string[][] {
   return rows;
 }
 
-function needsQuoting(field: string): boolean {
-  if (field.includes(",") || field.includes('"') || field.includes("\n") || field.includes("\r")) {
+function needsQuoting(field: string, delimiter: string): boolean {
+  if (field.includes(delimiter) || field.includes('"') || field.includes("\n") || field.includes("\r")) {
     return true;
   }
   // A field with leading/trailing whitespace needs quotes on the way out,
@@ -102,15 +123,16 @@ function needsQuoting(field: string): boolean {
   return field !== field.trim();
 }
 
-function formatField(field: string): string {
-  if (needsQuoting(field)) {
+function formatField(field: string, delimiter: string): string {
+  if (needsQuoting(field, delimiter)) {
     return `"${field.replace(/"/g, '""')}"`;
   }
   return field;
 }
 
-export function formatCsv(rows: string[][]): string {
-  const body = rows.map((row) => row.map(formatField).join(",")).join("\n");
+export function formatCsv(rows: string[][], options: CsvOptions = {}): string {
+  const delimiter = resolveDelimiter(options);
+  const body = rows.map((row) => row.map((field) => formatField(field, delimiter)).join(delimiter)).join("\n");
   return rows.length > 0 ? body + "\n" : "";
 }
 
@@ -121,6 +143,6 @@ export function formatCsv(rows: string[][]): string {
  * (ragged rows are left ragged) since guessing the "right" width is a
  * different, riskier problem.
  */
-export function normalizeCsv(input: string): string {
-  return formatCsv(parseCsv(input));
+export function normalizeCsv(input: string, options: CsvOptions = {}): string {
+  return formatCsv(parseCsv(input, options), options);
 }
