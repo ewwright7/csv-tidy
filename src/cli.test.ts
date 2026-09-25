@@ -87,3 +87,53 @@ test("cli reports an error when --delimiter is missing its value", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /--delimiter requires a value/);
 });
+
+test("cli pads ragged rows when --ragged-rows pad is given", () => {
+  const dir = mkdtempSync(join(tmpdir(), "csv-tidy-"));
+  const file = join(dir, "ragged.csv");
+  writeFileSync(file, "a,b,c\nd,e\n", "utf8");
+
+  try {
+    const result = runCli(["--ragged-rows", "pad", file]);
+    assert.equal(result.status, 0);
+    assert.equal(readFileSync(file, "utf8"), "a,b,c\nd,e,\n");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli reports an error and leaves the file untouched when --ragged-rows reject finds a ragged row", () => {
+  const dir = mkdtempSync(join(tmpdir(), "csv-tidy-"));
+  const file = join(dir, "ragged.csv");
+  const before = "a,b,c\nd,e\n";
+  writeFileSync(file, before, "utf8");
+
+  try {
+    const result = runCli(["--ragged-rows", "reject", file]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /row 2 has 2 field\(s\), expected 3/);
+    assert.equal(readFileSync(file, "utf8"), before);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli reports an error for an invalid --ragged-rows value", () => {
+  const dir = mkdtempSync(join(tmpdir(), "csv-tidy-"));
+  const file = join(dir, "clean.csv");
+  writeFileSync(file, "a,b\n", "utf8");
+
+  try {
+    const result = runCli(["--ragged-rows", "bogus", file]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /--ragged-rows must be one of/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cli reports an error when --ragged-rows is missing its value", () => {
+  const result = runCli(["--ragged-rows"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /--ragged-rows requires a value/);
+});

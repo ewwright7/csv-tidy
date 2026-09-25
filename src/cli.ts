@@ -7,13 +7,19 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { normalizeCsv } from "./normalize.ts";
+import { normalizeCsv, type RaggedRowMode } from "./normalize.ts";
 
-const USAGE = "usage: csv-tidy [--delimiter <char>] <file.csv> [file2.csv ...]";
+const USAGE =
+  "usage: csv-tidy [--delimiter <char>] [--ragged-rows allow|pad|reject] <file.csv> [file2.csv ...]";
 
-function parseArgs(argv: string[]): { delimiter?: string; paths: string[] } | { error: string } {
+const RAGGED_ROW_MODES: RaggedRowMode[] = ["allow", "pad", "reject"];
+
+function parseArgs(
+  argv: string[],
+): { delimiter?: string; raggedRows?: RaggedRowMode; paths: string[] } | { error: string } {
   const args = argv.slice(2);
   let delimiter: string | undefined;
+  let raggedRows: RaggedRowMode | undefined;
   const paths: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
@@ -27,10 +33,22 @@ function parseArgs(argv: string[]): { delimiter?: string; paths: string[] } | { 
       i += 1;
       continue;
     }
+    if (arg === "--ragged-rows") {
+      const value = args[i + 1];
+      if (value === undefined) {
+        return { error: "csv-tidy: --ragged-rows requires a value" };
+      }
+      if (!RAGGED_ROW_MODES.includes(value as RaggedRowMode)) {
+        return { error: `csv-tidy: --ragged-rows must be one of ${RAGGED_ROW_MODES.join(", ")}, got ${value}` };
+      }
+      raggedRows = value as RaggedRowMode;
+      i += 1;
+      continue;
+    }
     paths.push(arg);
   }
 
-  return { delimiter, paths };
+  return { delimiter, raggedRows, paths };
 }
 
 function main(argv: string[]): number {
@@ -40,7 +58,7 @@ function main(argv: string[]): number {
     return 1;
   }
 
-  const { delimiter, paths } = parsed;
+  const { delimiter, raggedRows, paths } = parsed;
   if (paths.length === 0) {
     console.error(USAGE);
     return 1;
@@ -61,7 +79,7 @@ function main(argv: string[]): number {
 
     let output: string;
     try {
-      output = normalizeCsv(input, { delimiter });
+      output = normalizeCsv(input, { delimiter, raggedRows });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`csv-tidy: ${path}: ${message}`);

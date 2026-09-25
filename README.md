@@ -12,9 +12,23 @@ consistent form: LF line endings, no BOM, unquoted fields trimmed, and quotes
 applied only where a field actually needs them (it contains a comma, a quote,
 a newline, or leading/trailing whitespace that would otherwise be lost).
 
-It does not try to fix row/column shape. A row with the wrong number of
-fields is a data problem, not a formatting problem, so ragged rows are left
-ragged on purpose.
+By default it does not try to fix row/column shape. A row with the wrong
+number of fields is a data problem, not a formatting problem, so ragged rows
+are left ragged unless you ask otherwise via `raggedRows`:
+
+```ts
+normalizeCsv("a,b,c\nd,e\n", { raggedRows: "pad" });
+// a,b,c
+// d,e,
+
+normalizeCsv("a,b,c\nd,e\n", { raggedRows: "reject" });
+// throws: csv row 2 has 2 field(s), expected 3 (based on row 1)
+```
+
+The first row sets the expected width. `"pad"` appends empty fields to short
+rows but never truncates a row that has too many (that would silently drop
+data). `"reject"` throws on the first mismatch. The default, `"allow"`,
+passes ragged rows through untouched.
 
 ## Usage
 
@@ -57,6 +71,13 @@ separator:
 
 ```
 node --experimental-strip-types src/cli.ts --delimiter ";" messy.csv
+```
+
+Pass `--ragged-rows` with `allow` (the default), `pad`, or `reject` to
+control what happens to rows whose width doesn't match the first row:
+
+```
+node --experimental-strip-types src/cli.ts --ragged-rows reject messy.csv
 ```
 
 Files that are already in canonical form are left untouched (no write, no

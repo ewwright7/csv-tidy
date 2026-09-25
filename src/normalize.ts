@@ -9,9 +9,20 @@
  * RFC 4180 implementation.
  */
 
+/**
+ * What to do with a row whose field count does not match the first row's:
+ *  - "allow": leave it as-is (the old, and still default, behavior).
+ *  - "pad": append empty fields until it matches. Never truncates a row
+ *    that has too many fields, since that would silently drop data.
+ *  - "reject": throw, naming the offending row and the expected width.
+ */
+export type RaggedRowMode = "allow" | "pad" | "reject";
+
 export interface CsvOptions {
   /** Single-character field separator. Defaults to "," (comma). */
   delimiter?: string;
+  /** How to handle rows whose width does not match the first row. Defaults to "allow". */
+  raggedRows?: RaggedRowMode;
 }
 
 const DEFAULT_DELIMITER = ",";
@@ -137,12 +148,40 @@ export function formatCsv(rows: string[][], options: CsvOptions = {}): string {
 }
 
 /**
+ * The first row sets the expected width; everything else is measured
+ * against it. There's no other reasonable baseline without reading the
+ * whole file twice to find a mode or max.
+ */
+function applyRaggedRowMode(rows: string[][], mode: RaggedRowMode): string[][] {
+  if (mode === "allow" || rows.length === 0) {
+    return rows;
+  }
+
+  const width = rows[0].length;
+
+  if (mode === "reject") {
+    rows.forEach((row, index) => {
+      if (row.length !== width) {
+        throw new Error(
+          `csv row ${index + 1} has ${row.length} field(s), expected ${width} (based on row 1)`,
+        );
+      }
+    });
+    return rows;
+  }
+
+  return rows.map((row) => (row.length < width ? [...row, ...new Array(width - row.length).fill("")] : row));
+}
+
+/**
  * Runs input through parseCsv and back through formatCsv, which is enough to
  * fix mixed line endings, a stray BOM, inconsistent quoting, and padding
- * whitespace around unquoted fields. It does not touch row/column shape
- * (ragged rows are left ragged) since guessing the "right" width is a
- * different, riskier problem.
+ * whitespace around unquoted fields. Row/column shape is left alone unless
+ * `raggedRows` says otherwise (the default is still to pass ragged rows
+ * through untouched, since guessing the "right" width is a different,
+ * riskier problem than reformatting).
  */
 export function normalizeCsv(input: string, options: CsvOptions = {}): string {
-  return formatCsv(parseCsv(input, options), options);
+  const rows = applyRaggedRowMode(parseCsv(input, options), options.raggedRows ?? "allow");
+  return formatCsv(rows, options);
 }

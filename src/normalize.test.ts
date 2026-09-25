@@ -140,3 +140,23 @@ test("a multi-character delimiter is rejected", () => {
 test("a quote character cannot be used as the delimiter", () => {
   assert.throws(() => normalizeCsv("a,b\n", { delimiter: '"' }), /quote or line-ending/);
 });
+
+test("raggedRows 'pad' fills a short row out to the first row's width", () => {
+  assert.equal(normalizeCsv("a,b,c\nd,e\n", { raggedRows: "pad" }), "a,b,c\nd,e,\n");
+});
+
+test("raggedRows 'pad' does not truncate a row that is too long", () => {
+  assert.equal(normalizeCsv("a,b\nc,d,e\n", { raggedRows: "pad" }), "a,b\nc,d,e\n");
+});
+
+test("raggedRows 'reject' throws naming the offending row and expected width", () => {
+  assert.throws(() => normalizeCsv("a,b,c\nd,e\n", { raggedRows: "reject" }), /row 2 has 2 field\(s\), expected 3/);
+});
+
+test("raggedRows 'reject' passes a uniform file through untouched", () => {
+  assert.equal(normalizeCsv("a,b\nc,d\n", { raggedRows: "reject" }), "a,b\nc,d\n");
+});
+
+test("raggedRows defaults to 'allow', leaving ragged rows as-is", () => {
+  assert.equal(normalizeCsv("a,b,c\nd,e\n"), "a,b,c\nd,e\n");
+});
